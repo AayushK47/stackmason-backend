@@ -9,7 +9,11 @@
 
 import router from '@adonisjs/core/services/router'
 const RegionController = () => import('#controllers/regions_controller')
+const ResourcesController = () => import('#controllers/resources_controller')
 
-router.group(() => {
-  router.get('region', [RegionController, 'index'])
-})
+router
+  .group(() => {
+    router.get('', [RegionController, 'index'])
+    router.get(':regionId/resources/', [ResourcesController, 'index'])
+  })
+  .prefix('api/regions')
