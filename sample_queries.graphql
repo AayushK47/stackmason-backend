@@ -1,0 +1,143 @@
+# Sample GraphQL Queries for StackMason Backend
+# Use these queries in the GraphQL Playground at http://localhost:8000/graphql
+
+# ==========================================
+# 1. Get All Regions
+# ==========================================
+query GetAllRegions {
+  regions {
+    id
+    regionCode
+    regionName
+  }
+}
+
+# ==========================================
+# 2. Get Resources by Region
+# ==========================================
+query GetResourcesByRegion($regionId: Int!) {
+  resourcesByRegion(regionId: $regionId) {
+    id
+    resourceType
+    documentationUrl
+  }
+}
+
+# Variables for query above:
+# {
+#   "regionId": 1
+# }
+
+# ==========================================
+# 3. Get Complete Resource Details
+# ==========================================
+query GetResourceDetail($resourceId: Int!) {
+  resourceDetail(resourceId: $resourceId) {
+    id
+    resourceType
+    documentationUrl
+    
+    # Available regions for this resource
+    availableRegions {
+      id
+      regionCode
+      regionName
+    }
+    
+    # Root-level properties
+    properties {
+      id
+      propertyName
+      documentationUrl
+      updateType
+      isRequired
+      isList
+      isMap
+      primitiveType
+      complexTypeId
+      complexTypeName
+      listAllowsDuplicates
+      
+      # Nested properties (for complex types)
+      nestedProperties {
+        id
+        propertyName
+        documentationUrl
+        updateType
+        isRequired
+        isList
+        isMap
+        primitiveType
+        complexTypeId
+        complexTypeName
+        listAllowsDuplicates
+        
+        # Third level nesting (if needed)
+        nestedProperties {
+          id
+          propertyName
+          primitiveType
+          complexTypeName
+          isRequired
+          isList
+          isMap
+        }
+      }
+    }
+    
+    # Return attributes (Fn::GetAtt)
+    attributes {
+      id
+      attributeName
+      primitiveType
+      isList
+      listItemType
+    }
+  }
+}
+
+# Variables for query above:
+# {
+#   "resourceId": 1
+# }
+
+# ==========================================
+# 4. Search Resources
+# ==========================================
+query SearchResources($query: String!, $regionId: Int) {
+  searchResources(query: $query, regionId: $regionId) {
+    id
+    resourceType
+    documentationUrl
+  }
+}
+
+# Variables for query above (search without region filter):
+# {
+#   "query": "S3"
+# }
+
+# Variables for query above (search with region filter):
+# {
+#   "query": "Lambda",
+#   "regionId": 1
+# }
+
+# ==========================================
+# Complete User Journey Example
+# ==========================================
+
+# Step 1: User selects region
+# Use: GetAllRegions query
+
+# Step 2: User views resources for that region
+# Use: GetResourcesByRegion query with selected regionId
+
+# Step 3: User selects a resource and views details
+# Use: GetResourceDetail query with selected resourceId
+# This returns everything the frontend needs to render:
+# - Resource type and documentation
+# - All properties with full nested structure
+# - All return attributes
+# - Available regions
+
