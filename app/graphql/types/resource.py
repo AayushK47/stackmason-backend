@@ -14,6 +14,16 @@ class ResourceSummary:
 
 
 @strawberry.type
+class PaginatedResources:
+    """Paginated list of resources with metadata."""
+    resources: List[ResourceSummary]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+
+
+@strawberry.type
 class ResourceAttribute:
     """Return values (Fn::GetAtt) for CloudFormation resources."""
     id: int

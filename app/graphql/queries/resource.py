@@ -3,6 +3,7 @@ from typing import List, Optional
 import strawberry
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
+from sqlalchemy import func
 from app.database import get_db
 from app.models import (
     Resource as ResourceModel,
@@ -13,7 +14,8 @@ from app.graphql.types import (
     ResourceSummary,
     ResourceDetail,
     ResourceAttribute,
-    Region
+    Region,
+    PaginatedResources
 )
 from app.graphql.utils import build_property_tree
 
@@ -23,27 +25,64 @@ class ResourceQueries:
     """Resource query resolvers."""
     
     @strawberry.field
-    def resources_by_region(self, region_id: int, info) -> List[ResourceSummary]:
-        """Get all resources available in a specific region."""
+    def resources_by_region(
+        self, 
+        region_id: int, 
+        limit: int = 50,
+        offset: int = 0,
+        info = None
+    ) -> PaginatedResources:
+        """Get resources available in a specific region with pagination.
+        
+        Args:
+            region_id: ID of the AWS region
+            limit: Number of resources per page (default: 50, max: 100)
+            offset: Number of resources to skip (default: 0)
+        """
+        # Enforce max limit
+        limit = min(limit, 100)
+        
         db: Session = next(get_db())
         try:
-            # Join through resource_regions to get resources for the specified region
-            statement = (
+            # Base query
+            base_statement = (
                 select(ResourceModel)
                 .join(ResourceRegion, ResourceModel.id == ResourceRegion.resource_id)
                 .where(ResourceRegion.region_id == region_id)
+            )
+            
+            # Get total count
+            count_statement = (
+                select(func.count())
+                .select_from(ResourceModel)
+                .join(ResourceRegion, ResourceModel.id == ResourceRegion.resource_id)
+                .where(ResourceRegion.region_id == region_id)
+            )
+            total = db.exec(count_statement).one()
+            
+            # Get paginated resources
+            statement = (
+                base_statement
                 .order_by(ResourceModel.resource_type)
+                .limit(limit)
+                .offset(offset)
             )
             resources = db.exec(statement).all()
             
-            return [
-                ResourceSummary(
-                    id=resource.id,
-                    resource_type=resource.resource_type,
-                    documentation_url=resource.documentation_url
-                )
-                for resource in resources
-            ]
+            return PaginatedResources(
+                resources=[
+                    ResourceSummary(
+                        id=resource.id,
+                        resource_type=resource.resource_type,
+                        documentation_url=resource.documentation_url
+                    )
+                    for resource in resources
+                ],
+                total=total,
+                limit=limit,
+                offset=offset,
+                has_more=(offset + limit) < total
+            )
         finally:
             db.close()
     
@@ -114,37 +153,74 @@ class ResourceQueries:
             db.close()
     
     @strawberry.field
-    def search_resources(self, query: str, region_id: Optional[int] = None, info=None) -> List[ResourceSummary]:
-        """Search resources by name/type, optionally filtered by region."""
+    def search_resources(
+        self, 
+        query: str, 
+        region_id: Optional[int] = None,
+        limit: int = 50,
+        offset: int = 0,
+        info=None
+    ) -> PaginatedResources:
+        """Search resources by name/type, optionally filtered by region.
+        
+        Args:
+            query: Search term to match against resource types
+            region_id: Optional region ID to filter by
+            limit: Number of resources per page (default: 50, max: 100)
+            offset: Number of resources to skip (default: 0)
+        """
+        # Enforce max limit
+        limit = min(limit, 100)
+        
         db: Session = next(get_db())
         try:
-            statement = select(ResourceModel)
+            base_statement = select(ResourceModel)
+            count_base = select(func.count()).select_from(ResourceModel)
             
             # Filter by region if specified
             if region_id:
-                statement = (
-                    statement
+                base_statement = (
+                    base_statement
+                    .join(ResourceRegion, ResourceModel.id == ResourceRegion.resource_id)
+                    .where(ResourceRegion.region_id == region_id)
+                )
+                count_base = (
+                    count_base
                     .join(ResourceRegion, ResourceModel.id == ResourceRegion.resource_id)
                     .where(ResourceRegion.region_id == region_id)
                 )
             
-            # Search by resource type
+            # Apply search filter
+            search_filter = ResourceModel.resource_type.ilike(f"%{query}%")
+            base_statement = base_statement.where(search_filter)
+            count_base = count_base.where(search_filter)
+            
+            # Get total count
+            total = db.exec(count_base).one()
+            
+            # Get paginated results
             statement = (
-                statement
-                .where(ResourceModel.resource_type.ilike(f"%{query}%"))
+                base_statement
                 .order_by(ResourceModel.resource_type)
-                .limit(50)
+                .limit(limit)
+                .offset(offset)
             )
             resources = db.exec(statement).all()
             
-            return [
-                ResourceSummary(
-                    id=resource.id,
-                    resource_type=resource.resource_type,
-                    documentation_url=resource.documentation_url
-                )
-                for resource in resources
-            ]
+            return PaginatedResources(
+                resources=[
+                    ResourceSummary(
+                        id=resource.id,
+                        resource_type=resource.resource_type,
+                        documentation_url=resource.documentation_url
+                    )
+                    for resource in resources
+                ],
+                total=total,
+                limit=limit,
+                offset=offset,
+                has_more=(offset + limit) < total
+            )
         finally:
             db.close()
 

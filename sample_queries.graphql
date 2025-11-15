@@ -13,19 +13,34 @@ query GetAllRegions {
 }
 
 # ==========================================
-# 2. Get Resources by Region
+# 2. Get Resources by Region (Paginated)
 # ==========================================
-query GetResourcesByRegion($regionId: Int!) {
-  resourcesByRegion(regionId: $regionId) {
-    id
-    resourceType
-    documentationUrl
+query GetResourcesByRegion($regionId: Int!, $limit: Int, $offset: Int) {
+  resourcesByRegion(regionId: $regionId, limit: $limit, offset: $offset) {
+    resources {
+      id
+      resourceType
+      documentationUrl
+    }
+    total
+    limit
+    offset
+    hasMore
   }
 }
 
-# Variables for query above:
+# Variables for query above (first page):
 # {
-#   "regionId": 1
+#   "regionId": 1,
+#   "limit": 50,
+#   "offset": 0
+# }
+
+# Variables for query above (second page):
+# {
+#   "regionId": 1,
+#   "limit": 50,
+#   "offset": 50
 # }
 
 # ==========================================
@@ -102,25 +117,35 @@ query GetResourceDetail($resourceId: Int!) {
 # }
 
 # ==========================================
-# 4. Search Resources
+# 4. Search Resources (Paginated)
 # ==========================================
-query SearchResources($query: String!, $regionId: Int) {
-  searchResources(query: $query, regionId: $regionId) {
-    id
-    resourceType
-    documentationUrl
+query SearchResources($query: String!, $regionId: Int, $limit: Int, $offset: Int) {
+  searchResources(query: $query, regionId: $regionId, limit: $limit, offset: $offset) {
+    resources {
+      id
+      resourceType
+      documentationUrl
+    }
+    total
+    limit
+    offset
+    hasMore
   }
 }
 
 # Variables for query above (search without region filter):
 # {
-#   "query": "S3"
+#   "query": "S3",
+#   "limit": 50,
+#   "offset": 0
 # }
 
 # Variables for query above (search with region filter):
 # {
 #   "query": "Lambda",
-#   "regionId": 1
+#   "regionId": 1,
+#   "limit": 50,
+#   "offset": 0
 # }
 
 # ==========================================
